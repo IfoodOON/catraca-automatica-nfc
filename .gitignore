@@ -26,3 +26,4 @@ Thumbs.db
 # Config local (dados pessoais reais, não vão para o repositório)
 src/config/local_settings.py
 src/config/cartoes.json
+src/config/admin.json

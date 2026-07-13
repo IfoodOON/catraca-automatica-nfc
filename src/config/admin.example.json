@@ -1,0 +1,3 @@
+{
+  "senha_hash": "coloque aqui o hash SHA-256 da senha, ou apague este arquivo e deixe o app criar um com a senha padrão"
+}

@@ -34,3 +34,19 @@ class CardRegistry:
         """Retorna o nome do usuário se o UID estiver autorizado, senão None."""
         cartao = self._cartoes.get(uid.upper())
         return cartao["nome"] if cartao else None
+
+    def listar(self) -> dict[str, str]:
+        """Retorna {uid: nome} de todos os cartões cadastrados."""
+        return {uid: dados["nome"] for uid, dados in self._cartoes.items()}
+
+    def adicionar(self, uid: str, nome: str) -> None:
+        self._cartoes[uid.upper()] = {"nome": nome}
+        self._salvar()
+
+    def remover(self, uid: str) -> None:
+        self._cartoes.pop(uid.upper(), None)
+        self._salvar()
+
+    def _salvar(self) -> None:
+        with open(self._cartoes_file, "w", encoding="utf-8") as f:
+            json.dump(self._cartoes, f, ensure_ascii=False, indent=2)

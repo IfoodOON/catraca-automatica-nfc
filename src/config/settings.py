@@ -14,5 +14,8 @@ SERIAL_RECONNECT_INTERVAL_S = 3
 # --- Cadastro de cartões NFC ---
 CARTOES_FILE = BASE_DIR / "cartoes.json"
 
+# --- Administração (tela de cadastro) ---
+ADMIN_FILE = BASE_DIR / "admin.json"
+
 # --- NFC ---
 NFC_RECONNECT_INTERVAL_S = 3

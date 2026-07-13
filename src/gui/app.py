@@ -1,17 +1,26 @@
 """Janela principal da aplicação."""
 
+from __future__ import annotations
+
 import queue
+from typing import Callable
 
 import customtkinter as ctk
 
 from core.access_control import AccessControlFSM, Estado, Resultado
+from core.admin_auth import AdminAuth
+from core.card_registry import CardRegistry
 from core.eventos import CONEXAO_EVENTOS, Evento, EventoTipo
 from gui import theme
+from gui.admin import AdminWindow, SenhaDialog
 from gui.components.clock import RelogioFrame
 from gui.components.status_badge import StatusBadge
 
 INTERVALO_POLLING_MS = 100
 DURACAO_MENSAGEM_NEGADO_MS = 2500
+
+CLIQUES_PARA_ADMIN = 6
+JANELA_CLIQUES_MS = 2000
 
 CORES_POR_ESTADO = {
     Estado.IDLE: theme.COR_NEUTRO,
@@ -23,7 +32,14 @@ CORES_POR_ESTADO = {
 
 
 class App(ctk.CTk):
-    def __init__(self, fila_eventos: queue.Queue, fsm: AccessControlFSM, empresa: str):
+    def __init__(
+        self,
+        fila_eventos: queue.Queue,
+        fsm: AccessControlFSM,
+        empresa: str,
+        card_registry: CardRegistry,
+        admin_auth: AdminAuth,
+    ):
         super().__init__()
 
         ctk.set_appearance_mode("dark")
@@ -31,6 +47,12 @@ class App(ctk.CTk):
         self._fila = fila_eventos
         self._fsm = fsm
         self._empresa = empresa
+        self._card_registry = card_registry
+        self._admin_auth = admin_auth
+
+        self._callback_captura: Callable[[str], None] | None = None
+        self._contador_cliques_secretos = 0
+        self._id_reset_cliques_secretos: str | None = None
 
         self.title(f"Catraca Automatizada — {empresa}")
         self.minsize(800, 540)
@@ -48,6 +70,35 @@ class App(ctk.CTk):
         y = (tela_altura - altura) // 2 - 20  # levemente acima do centro, reservando espaço pra barra de tarefas
         self.geometry(f"{largura}x{altura}+{x}+{max(y, 0)}")
 
+    def _registrar_clique_secreto(self, _evento) -> None:
+        self._contador_cliques_secretos += 1
+
+        if self._id_reset_cliques_secretos is not None:
+            self.after_cancel(self._id_reset_cliques_secretos)
+        self._id_reset_cliques_secretos = self.after(JANELA_CLIQUES_MS, self._resetar_cliques_secretos)
+
+        if self._contador_cliques_secretos >= CLIQUES_PARA_ADMIN:
+            self._resetar_cliques_secretos()
+            self._abrir_dialogo_senha()
+
+    def _resetar_cliques_secretos(self) -> None:
+        self._contador_cliques_secretos = 0
+        if self._id_reset_cliques_secretos is not None:
+            self.after_cancel(self._id_reset_cliques_secretos)
+            self._id_reset_cliques_secretos = None
+
+    def _abrir_dialogo_senha(self) -> None:
+        SenhaDialog(self, self._admin_auth, self._abrir_admin)
+
+    def _abrir_admin(self) -> None:
+        AdminWindow(self, self._card_registry, self.ativar_modo_captura, self.desativar_modo_captura)
+
+    def ativar_modo_captura(self, callback: Callable[[str], None]) -> None:
+        self._callback_captura = callback
+
+    def desativar_modo_captura(self) -> None:
+        self._callback_captura = None
+
     def _construir_layout(self) -> None:
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -57,9 +108,13 @@ class App(ctk.CTk):
         cabecalho.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 10))
         cabecalho.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
+        label_empresa = ctk.CTkLabel(
             cabecalho, text=self._empresa, font=theme.FONTE_EMPRESA, text_color=theme.COR_TEXTO
-        ).grid(row=0, column=0, sticky="w")
+        )
+        label_empresa.grid(row=0, column=0, sticky="w")
+        # Sem botão nem área visível: 6 cliques no nome da empresa (canto
+        # superior esquerdo) abrem a tela de administração.
+        label_empresa.bind("<Button-1>", self._registrar_clique_secreto)
         ctk.CTkLabel(
             cabecalho,
             text="Controle de acesso automatizado",
@@ -121,6 +176,10 @@ class App(ctk.CTk):
     def _tratar_evento(self, evento: Evento) -> None:
         if evento.tipo in CONEXAO_EVENTOS:
             self._atualizar_badge_conexao(evento)
+            return
+
+        if evento.tipo is EventoTipo.CARTAO_LIDO and self._callback_captura is not None:
+            self._callback_captura(evento.dados)
             return
 
         resultado = self._fsm.processar(evento)

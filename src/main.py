@@ -5,6 +5,7 @@ import queue
 
 import config.settings as settings
 from core.access_control import AccessControlFSM
+from core.admin_auth import AdminAuth
 from core.card_registry import CardRegistry
 from gui.app import App
 from hardware.nfc_reader import NfcReader
@@ -17,6 +18,7 @@ def main() -> None:
     fila_eventos: queue.Queue = queue.Queue()
 
     card_registry = CardRegistry(settings.CARTOES_FILE)
+    admin_auth = AdminAuth(settings.ADMIN_FILE)
 
     serial_manager = SerialManager(
         fila_eventos=fila_eventos,
@@ -34,7 +36,13 @@ def main() -> None:
     serial_manager.iniciar()
     nfc_reader.iniciar()
 
-    app = App(fila_eventos=fila_eventos, fsm=fsm, empresa=settings.EMPRESA)
+    app = App(
+        fila_eventos=fila_eventos,
+        fsm=fsm,
+        empresa=settings.EMPRESA,
+        card_registry=card_registry,
+        admin_auth=admin_auth,
+    )
     app.mainloop()
 
 
