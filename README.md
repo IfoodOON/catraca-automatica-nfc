@@ -2,7 +2,7 @@
 
 Sistema de controle de acesso veicular para a **LAB 220**, combinando um Arduino (sensor de proximidade + cancela com servo motor + relé/LED) com uma aplicação Python que faz a leitura de cartões NFC e exibe uma interface gráfica com o status em tempo real do sistema.
 
-> Status: projeto em desenvolvimento inicial. A estrutura de pastas e o firmware do Arduino já estão prontos; a aplicação Python (interface, comunicação serial e leitura NFC) está sendo construída.
+> Status: funcional e testado com hardware real (Arduino + leitor NFC USB). Inclui tela de administração para cadastro de cartões e geração de executável standalone para Windows.
 
 ## Funcionamento
 
@@ -15,6 +15,10 @@ Sistema de controle de acesso veicular para a **LAB 220**, combinando um Arduino
 7. Após a passagem do veículo, o Arduino aguarda alguns segundos e fecha a cancela lentamente, avisando a aplicação (`FECHADA`).
 8. O sistema volta ao estado inicial, aguardando o próximo veículo.
 
+### Cadastro de funcionários/cartões
+
+Clicando 6 vezes seguidas (em até 2s) no nome "LAB 220" no cabeçalho da interface, é pedida uma senha (ver/alterar em `src/config/admin.json`) que abre a tela de administração: lista os cartões já cadastrados, permite remover, e permite cadastrar um novo aproximando o cartão do leitor (sem que isso conte como uma tentativa normal de acesso).
+
 ## Estrutura das pastas
 
 ```
@@ -25,9 +29,10 @@ src/
   config/              # Configurações do sistema (porta COM, parâmetros, etc.)
   core/                # Lógica principal / máquina de estados do fluxo de acesso
   hardware/            # Comunicação Serial (Arduino) e comunicação NFC (leitor USB)
-  gui/                 # Interface gráfica (CustomTkinter) e seus componentes
+  gui/                 # Interface gráfica (CustomTkinter), incluindo gui/admin.py (tela de cadastro)
   resources/           # Ícones e imagens usados pela interface
 docs/                  # Fluxograma e demais documentos de referência do projeto
+executar.bat            # Atalho: abre o app com duplo clique (usa o .venv já instalado)
 requirements.txt       # Dependências Python
 ```
 
@@ -55,10 +60,12 @@ python src/main.py
 ## Como gerar o executável
 
 ```bash
-pyinstaller --noconfirm --onefile --windowed --name CatracaLAB220 --add-data "src/resources;resources" src/main.py
+pyinstaller --noconfirm --onefile --windowed --name CatracaLAB220 src/main.py
 ```
 
-O executável final ficará em `dist/CatracaLAB220.exe`.
+O executável final ficará em `dist/CatracaLAB220.exe`. Ele pode ser copiado e executado em qualquer lugar (ex: Área de Trabalho) — na primeira execução, cria `cartoes.json` e `admin.json` na mesma pasta onde o `.exe` está, e registra logs em `catraca.log` ali também.
+
+Se `src/resources/` (ícones/imagens) ganhar arquivos no futuro, adicione `--add-data "src/resources;resources"` ao comando pra empacotá-los junto.
 
 ## Como adicionar novas funcionalidades
 
