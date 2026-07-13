@@ -14,7 +14,12 @@ from core.eventos import Evento, EventoTipo
 
 logger = logging.getLogger(__name__)
 
-ARDUINO_VID = 0x2341  # VID oficial da Arduino LLC
+ARDUINO_VIDS = {
+    0x2341,  # Arduino LLC (placas oficiais)
+    0x1A86,  # WCH CH340 (muito comum em clones de Uno/Nano)
+    0x10C4,  # Silicon Labs CP210x (outro chip comum em clones)
+    0x0403,  # FTDI (alguns clones/shields)
+}
 
 COMANDO_PARA_EVENTO = {
     "CARRO": EventoTipo.CARRO_DETECTADO,
@@ -121,6 +126,6 @@ class SerialManager:
     def _detectar_porta() -> str | None:
         for porta in list_ports.comports():
             descricao = (porta.description or "").lower()
-            if "arduino" in descricao or porta.vid == ARDUINO_VID:
+            if "arduino" in descricao or "ch340" in descricao or porta.vid in ARDUINO_VIDS:
                 return porta.device
         return None
