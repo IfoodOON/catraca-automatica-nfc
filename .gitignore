@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# PyInstaller build output
+build/
+dist/
+*.spec
+
+# Arduino IDE
+*.hex
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Config local (se vier a conter dados sensíveis, ex: lista de cartões)
+src/config/local_settings.py
