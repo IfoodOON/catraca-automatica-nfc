@@ -21,6 +21,8 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
-# Config local (se vier a conter dados sensíveis, ex: lista de cartões)
+# Config local (dados pessoais reais, não vão para o repositório)
 src/config/local_settings.py
+src/config/cartoes.json
