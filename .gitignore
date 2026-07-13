@@ -27,3 +27,5 @@ Thumbs.db
 src/config/local_settings.py
 src/config/cartoes.json
 src/config/admin.json
+catraca.log
+src/catraca.log

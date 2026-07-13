@@ -1,8 +1,16 @@
 """Configuração central da aplicação."""
 
+import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    # Rodando como .exe (PyInstaller): __file__ apontaria pra uma pasta
+    # temporária que é recriada a cada execução (modo --onefile), então os
+    # dados (cartões/senha) ficam salvos ao lado do próprio .exe pra persistir
+    # entre execuções.
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent
 
 EMPRESA = "LAB 220"
 

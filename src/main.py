@@ -12,9 +12,16 @@ from hardware.nfc_reader import NfcReader
 from hardware.serial_comm import SerialManager
 
 # Configura o log padrão do Python: tudo que os módulos chamarem via
-# `logging.getLogger(__name__).info(...)` (ou .warning/.error) aparece no
-# terminal com data/hora, nível e nome do módulo que gerou a mensagem.
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+# `logging.getLogger(__name__).info(...)` (ou .warning/.error) vai pra um
+# arquivo (catraca.log, ao lado do .py ou do .exe conforme settings.BASE_DIR).
+# Não usamos o console/stderr porque no .exe empacotado com --windowed não
+# existe console — sys.stderr fica None e tentar escrever nele derruba o app.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    filename=settings.BASE_DIR / "catraca.log",
+    encoding="utf-8",
+)
 
 
 def main() -> None:
