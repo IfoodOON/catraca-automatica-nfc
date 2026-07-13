@@ -12,6 +12,9 @@ from gui import theme
 
 
 class SenhaDialog(ctk.CTkToplevel):
+    """Janela modal pedindo a senha antes de abrir a AdminWindow.
+    `CTkToplevel` = uma janela separada, mas "filha" da principal."""
+
     def __init__(self, master, admin_auth: AdminAuth, ao_autenticar: Callable[[], None]):
         super().__init__(master)
         self._admin_auth = admin_auth
@@ -54,6 +57,12 @@ class SenhaDialog(ctk.CTkToplevel):
 
 
 class AdminWindow(ctk.CTkToplevel):
+    """Tela de cadastro: lista os cartões existentes e permite capturar um
+    UID novo aproximando o cartão do leitor (via `ativar_captura`, recebido
+    de fora — ver `App.ativar_modo_captura`), sem passar pelo fluxo normal
+    de acesso.
+    """
+
     def __init__(
         self,
         master,
@@ -135,6 +144,9 @@ class AdminWindow(ctk.CTkToplevel):
         self._popular_lista()
 
     def _iniciar_captura(self) -> None:
+        # Registra `_on_cartao_capturado` como o callback que a App vai
+        # chamar assim que o próximo cartão for lido (em vez de tratá-lo
+        # como uma tentativa normal de acesso).
         self._uid_capturado = None
         self._botao_salvar.configure(state="disabled")
         self._label_captura.configure(text="Aproxime o cartão do leitor...")
@@ -144,7 +156,7 @@ class AdminWindow(ctk.CTkToplevel):
         self._uid_capturado = uid
         self._label_captura.configure(text=f"Cartão lido: {uid}")
         self._botao_salvar.configure(state="normal")
-        self._desativar_captura()
+        self._desativar_captura()  # já capturou; volta o app ao modo normal
 
     def _salvar(self) -> None:
         nome = self._entrada_nome.get().strip()

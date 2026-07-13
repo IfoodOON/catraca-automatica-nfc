@@ -27,6 +27,8 @@ class EventoTipo(Enum):
     NFC_DESCONECTADO = auto()
 
 
+# Conjunto usado pela GUI pra desviar eventos de conexão (App._tratar_evento):
+# eles atualizam só os badges de status, nunca passam pela máquina de estados.
 CONEXAO_EVENTOS = {
     EventoTipo.ARDUINO_CONECTADO,
     EventoTipo.ARDUINO_DESCONECTADO,
@@ -37,5 +39,9 @@ CONEXAO_EVENTOS = {
 
 @dataclass(frozen=True)
 class Evento:
+    """Um item da fila de eventos. `dados` carrega informação extra quando
+    faz sentido (ex: o UID lido num CARTAO_LIDO); fica None nos demais casos.
+    """
+
     tipo: EventoTipo
     dados: str | None = None

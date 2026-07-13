@@ -18,12 +18,15 @@ SENHA_PADRAO = "lab220"
 
 
 def _hash(senha: str) -> str:
+    # Nunca comparamos/guardamos a senha em texto puro, só esse hash.
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 
 class AdminAuth:
     def __init__(self, admin_file: Path):
         self._admin_file = admin_file
+        # Primeira vez que o app roda nesta máquina: cria o arquivo
+        # automaticamente com a senha padrão, pra não travar o usuário.
         if not self._admin_file.exists():
             logger.warning(
                 "Arquivo de admin não encontrado, criando com senha padrão '%s'. "

@@ -32,6 +32,12 @@ CORES_POR_ESTADO = {
 
 
 class App(ctk.CTk):
+    """Janela principal. Além de desenhar a tela, também é o "cola-tudo" do
+    programa: a cada 100ms drena a fila de eventos vinda das threads de
+    hardware (ver `_processar_fila`) e decide se atualiza um badge de
+    status, repassa pra máquina de estados, ou desvia pra tela de admin.
+    """
+
     def __init__(
         self,
         fila_eventos: queue.Queue,
@@ -71,8 +77,14 @@ class App(ctk.CTk):
         self.geometry(f"{largura}x{altura}+{x}+{max(y, 0)}")
 
     def _registrar_clique_secreto(self, _evento) -> None:
+        """Conta cliques no nome da empresa; 6 cliques dentro de
+        JANELA_CLIQUES_MS (2s) abrem a senha da tela de admin. Cliques
+        espalhados ao longo do dia não acumulam — o contador zera sozinho.
+        """
         self._contador_cliques_secretos += 1
 
+        # Reagenda o "reset" a cada clique nesse contador; só quando
+        # passam 2s SEM nenhum clique novo é que ele realmente chega a 0.
         if self._id_reset_cliques_secretos is not None:
             self.after_cancel(self._id_reset_cliques_secretos)
         self._id_reset_cliques_secretos = self.after(JANELA_CLIQUES_MS, self._resetar_cliques_secretos)
@@ -94,6 +106,10 @@ class App(ctk.CTk):
         AdminWindow(self, self._card_registry, self.ativar_modo_captura, self.desativar_modo_captura)
 
     def ativar_modo_captura(self, callback: Callable[[str], None]) -> None:
+        """Usado pela tela de admin: enquanto houver um `callback` aqui, o
+        próximo cartão lido é entregue a ele em vez de ir pra máquina de
+        estados — assim aproximar um cartão pra cadastrar não abre a catraca.
+        """
         self._callback_captura = callback
 
     def desativar_modo_captura(self) -> None:
@@ -165,6 +181,10 @@ class App(ctk.CTk):
         self._badge_nfc.atualizar("Desconectado", theme.COR_ERRO)
 
     def _processar_fila(self) -> None:
+        """Chamado a cada 100ms (self.after) — o "coração" do app. Esvazia
+        a fila inteira de uma vez (pode ter mais de um evento acumulado) e
+        se reagenda pra rodar de novo, criando um loop infinito e não-bloqueante.
+        """
         try:
             while True:
                 evento = self._fila.get_nowait()
@@ -174,6 +194,9 @@ class App(ctk.CTk):
         self.after(INTERVALO_POLLING_MS, self._processar_fila)
 
     def _tratar_evento(self, evento: Evento) -> None:
+        # Ordem importa: primeiro filtra eventos de conexão (não mexem no
+        # fluxo de acesso), depois checa se está em modo de captura (tela
+        # de admin esperando um cartão), só then repassa pra FSM normal.
         if evento.tipo in CONEXAO_EVENTOS:
             self._atualizar_badge_conexao(evento)
             return

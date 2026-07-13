@@ -44,6 +44,9 @@ class NfcReader:
             self._reader_monitor.deleteObserver(self._reader_observer)
 
     def _configurar_com_retry(self) -> None:
+        # Roda numa thread própria. Se o serviço PC/SC do Windows não
+        # estiver disponível ainda (ex: app abriu antes do serviço subir),
+        # tenta de novo periodicamente em vez de travar o app inteiro.
         while True:
             try:
                 self._configurar_monitores()
@@ -54,6 +57,10 @@ class NfcReader:
                 time.sleep(self._intervalo_reconexao)
 
     def _configurar_monitores(self) -> None:
+        # CardMonitor/ReaderMonitor são do pyscard: cada um já sobe sua
+        # própria thread interna e chama `update(...)` do observer sempre
+        # que um cartão é aproximado ou um leitor conecta/desconecta —
+        # não precisamos fazer polling manual aqui.
         self._card_observer = _CartaoLidoObserver(self._fila)
         self._card_monitor = CardMonitor()
         self._card_monitor.addObserver(self._card_observer)
@@ -62,11 +69,17 @@ class NfcReader:
         self._reader_monitor = ReaderMonitor()
         self._reader_monitor.addObserver(self._reader_observer)
 
+        # Avisa logo de cara se já tem (ou não) leitor plugado, sem esperar
+        # o próximo evento de conexão/desconexão do ReaderObserver.
         evento_inicial = EventoTipo.NFC_CONECTADO if pcsc_readers() else EventoTipo.NFC_DESCONECTADO
         self._fila.put(Evento(evento_inicial))
 
 
 class _CartaoLidoObserver(CardObserver):
+    """Chamado pelo pyscard sempre que a lista de cartões presentes no
+    leitor muda (`update`) — é aqui que a gente efetivamente lê o UID.
+    """
+
     def __init__(self, fila_eventos: queue.Queue):
         self._fila = fila_eventos
 
@@ -80,12 +93,16 @@ class _CartaoLidoObserver(CardObserver):
     @staticmethod
     def _ler_uid(cartao) -> str | None:
         try:
+            # Protocolo PC/SC padrão: conecta no cartão e manda o comando
+            # "Get Data" (APDU_GET_UID) pra pedir o UID dele.
             conexao = cartao.createConnection()
             conexao.connect()
             resposta, sw1, sw2 = conexao.transmit(APDU_GET_UID)
-            if (sw1, sw2) != (0x90, 0x00):
+            if (sw1, sw2) != (0x90, 0x00):  # 90 00 = "sucesso" no padrão PC/SC
                 logger.warning("Falha ao ler UID do cartão (sw=%02X%02X)", sw1, sw2)
                 return None
+            # UID vem como lista de bytes; convertemos pra string hex
+            # (ex: [5, 130, 136] -> "058288"), igual ao formato salvo em cartoes.json.
             return "".join(f"{byte:02X}" for byte in resposta)
         except (NoCardException, CardConnectionException):
             logger.exception("Erro ao ler cartão NFC")
@@ -93,6 +110,9 @@ class _CartaoLidoObserver(CardObserver):
 
 
 class _LeitorStatusObserver(ReaderObserver):
+    """Chamado pelo pyscard quando um leitor NFC é conectado/desconectado
+    do PC (não confundir com cartão sendo aproximado/afastado)."""
+
     def __init__(self, fila_eventos: queue.Queue):
         self._fila = fila_eventos
 
@@ -101,4 +121,6 @@ class _LeitorStatusObserver(ReaderObserver):
         if leitores_adicionados:
             self._fila.put(Evento(EventoTipo.NFC_CONECTADO))
         if leitores_removidos and not pcsc_readers():
+            # Só avisa "desconectado" se não sobrou nenhum outro leitor
+            # (o usuário pode ter mais de um plugado ao mesmo tempo).
             self._fila.put(Evento(EventoTipo.NFC_DESCONECTADO))

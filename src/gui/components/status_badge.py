@@ -26,5 +26,8 @@ class StatusBadge(ctk.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
 
     def atualizar(self, texto: str, cor: str) -> None:
+        """Único jeito de mudar o que o badge mostra — chamado pela App
+        sempre que um novo estado/status chega (ex: "Conectado", verde).
+        """
         self._ponto.configure(text_color=cor)
         self._texto_status.configure(text=texto, text_color=cor)

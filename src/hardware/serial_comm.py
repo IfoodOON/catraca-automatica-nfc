@@ -63,9 +63,16 @@ class SerialManager:
         self._parar.set()
 
     def enviar(self, comando: str) -> None:
+        """Manda uma linha de texto pro Arduino (ex: "ABRIR").
+
+        O `\\n` no final é essencial: o sketch usa `Serial.readStringUntil('\\n')`
+        pra saber onde o comando termina.
+        """
         if not self._conectado or self._serial is None:
             logger.warning("Tentativa de enviar '%s' sem conexão com o Arduino", comando)
             return
+        # Lock porque `enviar` pode ser chamado pela thread da GUI/FSM ao
+        # mesmo tempo em que `_loop` está lendo na thread de hardware.
         with self._write_lock:
             try:
                 self._serial.write(f"{comando}\n".encode("utf-8"))
@@ -74,6 +81,10 @@ class SerialManager:
                 self._marcar_desconectado()
 
     def _loop(self) -> None:
+        """Roda pra sempre numa thread própria (ver `iniciar`): enquanto
+        desconectado, fica tentando reconectar; enquanto conectado, fica
+        lendo linha por linha e traduzindo pra eventos na fila.
+        """
         while not self._parar.is_set():
             if not self._conectado:
                 self._tentar_conectar()
@@ -82,6 +93,9 @@ class SerialManager:
                 continue
 
             try:
+                # readline() com timeout=1 (definido em _tentar_conectar):
+                # bloqueia no máximo 1s: dá tempo de checar `self._parar`
+                # regularmente em vez de travar pra sempre esperando dado.
                 linha = self._serial.readline().decode("utf-8", errors="ignore").strip()
             except (serial.SerialException, OSError):
                 logger.exception("Conexão com o Arduino perdida")
@@ -109,6 +123,8 @@ class SerialManager:
             self._fila.put(Evento(EventoTipo.ARDUINO_CONECTADO, porta))
             logger.info("Conectado ao Arduino em %s", porta)
         except (serial.SerialException, OSError):
+            # Porta ocupada, não existe mais, etc. — sem problema, o loop
+            # tenta de novo depois de `intervalo_reconexao` segundos.
             self._serial = None
 
     def _marcar_desconectado(self) -> None:
@@ -124,6 +140,11 @@ class SerialManager:
 
     @staticmethod
     def _detectar_porta() -> str | None:
+        """Procura entre as portas COM disponíveis uma que pareça um Arduino
+        (oficial ou clone). Se não achar nada, devolve None e quem chamou
+        tenta de novo mais tarde — placas plugadas depois do app já ligado
+        acabam sendo detectadas no próximo ciclo.
+        """
         for porta in list_ports.comports():
             descricao = (porta.description or "").lower()
             if "arduino" in descricao or "ch340" in descricao or porta.vid in ARDUINO_VIDS:
